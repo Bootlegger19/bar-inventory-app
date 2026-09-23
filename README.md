@@ -1,2 +1,3 @@
 # bar-inventory-app
-An dedicated inventroy app for night life industry.
+An dedicated inventroy tool for the night life industry.
+
