@@ -4,6 +4,11 @@ from models import db, Category, Item, Bar, Employee
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates/admin")
 
+@admin_bp.after_request
+def add_no_cache_headers(response):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 def pin_required(view_func):
     @wraps(view_func)
