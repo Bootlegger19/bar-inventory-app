@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Inventory Check{% endblock %}
+{% block content %}
+  <h1 class="mb-4">Inventory Check</h1>
+
+  {% for category in categories %}
+    <div class="card mb-3">
+      <div class="card-header fw-bold">{{ category.name }}</div>
+      <ul class="list-group list-group-flush">
+        {% for item in category.items %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              {{ item.name }}
+              {% if item.id in last_counts %}
+                <div class="text-muted small">Last count: {{ last_counts[item.id] }}</div>
+              {% endif %}
+            </div>
+            <form action="{{ url_for('employee.submit_count') }}" method="post" class="d-flex align-items-center gap-2">
+              <input type="hidden" name="item_id" value="{{ item.id }}">
+              <input type="number" name="quantity" min="0"
+                     value="{{ current_counts.get(item.id, '') }}"
+                     class="form-control" style="width: 90px;" required>
+              <button type="submit" class="btn btn-outline-primary btn-sm">Save</button>
+            </form>
+          </li>
+        {% else %}
+          <li class="list-group-item text-muted">No items in this category</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endfor %}
+
+  <form action="{{ url_for('employee.complete_inventory') }}" method="post">
+    <button type="submit" class="btn btn-success">Complete inventory check</button>
+  </form>
+{% endblock %}

@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template
 from models import db, Bar, Category, Role, Employee
 
 app = Flask(__name__)
@@ -31,6 +31,14 @@ with app.app_context():
         db.session.add(admin)
         db.session.commit()
 
+    if Employee.query.filter_by(role_id=Role.query.filter_by(name="employee").first().id).count() == 0:
+        emp_role_id = Role.query.filter_by(name="employee").first().id
+        db.session.add_all([
+            Employee(name="Armstrong", bar_id=bar.id, role_id=emp_role_id),
+            Employee(name="Jordan", bar_id=bar.id, role_id=emp_role_id),
+        ])
+        db.session.commit()
+
 from routes.employee import employee_bp
 from routes.admin import admin_bp
 app.register_blueprint(employee_bp, url_prefix="/employee")
@@ -38,7 +46,7 @@ app.register_blueprint(admin_bp, url_prefix="/admin")
 
 @app.route("/")
 def landing():
-    return "<a href='/employee'>Employee</a> | <a href='/admin'>Admin</a>"
+    return render_template("landing.html")
 
 if __name__ == "__main__":
     app.run(debug=True)

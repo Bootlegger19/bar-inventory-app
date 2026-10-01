@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Start Closing{% endblock %}
+{% block content %}
+  <h1 class="mb-4">Who's closing tonight?</h1>
+  <form method="post">
+    <select name="employee_id" class="form-select mb-3" required>
+      <option value="" disabled selected>Select your name</option>
+      {% for employee in employees %}
+        <option value="{{ employee.id }}">{{ employee.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary">Start inventory check</button>
+  </form>
+{% endblock %}
