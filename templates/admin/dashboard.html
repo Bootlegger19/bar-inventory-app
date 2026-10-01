@@ -20,6 +20,20 @@
     {% for category in categories %}
       <div class="card mb-3">
         <div class="card-header fw-bold">{{ category.name }}</div>
+        <ul class="list-group list-group-flush">
+          {% for item in category.items %}
+            <li class="list-group-item">{{ item.name }}</li>
+          {% else %}
+            <li class="list-group-item text-muted">No items yet</li>
+          {% endfor %}
+        </ul>
+        <div class="card-body">
+          <form action="{{ url_for('admin.add_item') }}" method="post" class="d-flex gap-2">
+            <input type="hidden" name="category_id" value="{{ category.id }}">
+            <input type="text" name="name" class="form-control" placeholder="New item" required>
+            <button type="submit" class="btn btn-sm btn-outline-primary">Add</button>
+          </form>
+        </div>
       </div>
     {% endfor %}
 {% endblock %}

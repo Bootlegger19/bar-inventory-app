@@ -54,3 +54,13 @@ def add_category():
         db.session.add(Category(name=name, bar_id=bar.id))
         db.session.commit()
     return redirect(url_for("admin.dashboard"))
+
+@admin_bp.route("/add-item", methods=["POST"])
+@pin_required
+def add_item():
+    name = request.form["name"].strip()
+    category_id = int(request.form["category_id"])
+    if name:
+        db.session.add(Item(name=name, category_id=category_id))
+        db.session.commit()
+    return redirect(url_for("admin.dashboard"))

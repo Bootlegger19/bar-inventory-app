@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, session
+from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify
 from models import db, Category, Item, Employee, InventorySession, Count
 from datetime import datetime
 
@@ -9,16 +9,6 @@ employee_bp = Blueprint("employee", __name__, template_folder="../templates/empl
 def home():
     categories = Category.query.all()
     return render_template("items.html", categories=categories)
-
-
-@employee_bp.route("/add-item", methods=["POST"])
-def add_item():
-    name = request.form["name"].strip()
-    category_id = int(request.form["category_id"])
-    if name:
-        db.session.add(Item(name=name, category_id=category_id))
-        db.session.commit()
-    return redirect(url_for("employee.home"))
 
 
 @employee_bp.route("/start-closing", methods=["GET", "POST"])
@@ -67,8 +57,8 @@ def inventory_check():
     )
 
 
-@employee_bp.route("/submit-count", methods=["POST"])
-def submit_count():
+@employee_bp.route("/submit-count-ajax", methods=["POST"])
+def submit_count_ajax():
     session_id = session.get("inventory_session_id")
     item_id = int(request.form["item_id"])
     quantity = int(request.form["quantity"])
@@ -79,7 +69,7 @@ def submit_count():
     else:
         db.session.add(Count(session_id=session_id, item_id=item_id, quantity=quantity))
     db.session.commit()
-    return redirect(url_for("employee.inventory_check"))
+    return jsonify(success=True)
 
 
 @employee_bp.route("/complete-inventory", methods=["POST"])

@@ -5,22 +5,6 @@
     <h1 class="mb-4">Bar Inventory</h1>
     <a href="{{ url_for('employee.start_closing') }}" class="btn btn-success mb-3">Start Closing</a>
 
-    <form action="{{ url_for('employee.add_item') }}" method="post" class="row g-2 mb-4">
-      <div class="col-md-5">
-        <input type="text" name="name" class="form-control" placeholder="Item name" required>
-      </div>
-      <div class="col-md-4">
-        <select name="category_id" class="form-select">
-          {% for category in categories %}
-            <option value="{{ category.id }}">{{ category.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-3">
-        <button type="submit" class="btn btn-primary w-100">Add item</button>
-      </div>
-    </form>
-
     {% for category in categories %}
       <div class="card mb-3">
         <div class="card-header fw-bold">{{ category.name }}</div>

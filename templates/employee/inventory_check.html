@@ -15,13 +15,14 @@
                 <div class="text-muted small">Last count: {{ last_counts[item.id] }}</div>
               {% endif %}
             </div>
-            <form action="{{ url_for('employee.submit_count') }}" method="post" class="d-flex align-items-center gap-2">
-              <input type="hidden" name="item_id" value="{{ item.id }}">
-              <input type="number" name="quantity" min="0"
-                     value="{{ current_counts.get(item.id, '') }}"
-                     class="form-control" style="width: 90px;" required>
-              <button type="submit" class="btn btn-outline-primary btn-sm">Save</button>
-            </form>
+            <div class="d-flex align-items-center gap-2">
+              <input type="number" min="0" class="form-control count-input" style="width: 90px;"
+                     data-item-id="{{ item.id }}"
+                     value="{{ current_counts.get(item.id, '') }}">
+              <button type="button" class="btn btn-outline-primary btn-sm save-btn"
+                      data-item-id="{{ item.id }}">Save</button>
+              <span class="saved-indicator text-success small" id="saved-{{ item.id }}"></span>
+            </div>
           </li>
         {% else %}
           <li class="list-group-item text-muted">No items in this category</li>
@@ -33,4 +34,30 @@
   <form action="{{ url_for('employee.complete_inventory') }}" method="post">
     <button type="submit" class="btn btn-success">Complete inventory check</button>
   </form>
+
+  <script>
+    document.querySelectorAll(".save-btn").forEach(function (button) {
+      button.addEventListener("click", function () {
+        const itemId = button.dataset.itemId;
+        const input = document.querySelector(`.count-input[data-item-id="${itemId}"]`);
+        const quantity = input.value;
+
+        fetch("{{ url_for('employee.submit_count_ajax') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `item_id=${itemId}&quantity=${quantity}`,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            const indicator = document.getElementById(`saved-${itemId}`);
+            if (data.success) {
+              indicator.textContent = "Saved";
+              setTimeout(() => (indicator.textContent = ""), 1500);
+            } else {
+              indicator.textContent = "Error";
+            }
+          });
+      });
+    });
+  </script>
 {% endblock %}
