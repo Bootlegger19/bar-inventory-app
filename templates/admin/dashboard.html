@@ -7,6 +7,11 @@
 
 {% block content %}
     <h1 class="mb-4">{{ bar.name }} — Admin</h1>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-warning">{{ messages[0] }}</div>
+      {% endif %}
+    {% endwith %}
 
     <form action="{{ url_for('admin.add_category') }}" method="post" class="row g-2 mb-4">
       <div class="col-md-8">
@@ -19,10 +24,22 @@
 
     {% for category in categories %}
       <div class="card mb-3">
-        <div class="card-header fw-bold">{{ category.name }}</div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-bold">{{ category.name }}</span>
+          <form action="{{ url_for('admin.delete_category', category_id=category.id) }}" method="post"
+                onsubmit="return confirm('Delete category {{ category.name }}?');">
+            <button type="submit" class="btn btn-outline-danger btn-sm">Delete category</button>
+          </form>
+        </div>
         <ul class="list-group list-group-flush">
           {% for item in category.items %}
-            <li class="list-group-item">{{ item.name }}</li>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              {{ item.name }}
+              <form action="{{ url_for('admin.delete_item', item_id=item.id) }}" method="post"
+                    onsubmit="return confirm('Delete {{ item.name }}?');">
+                <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
+              </form>
+            </li>
           {% else %}
             <li class="list-group-item text-muted">No items yet</li>
           {% endfor %}

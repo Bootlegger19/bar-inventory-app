@@ -64,3 +64,22 @@ def add_item():
         db.session.add(Item(name=name, category_id=category_id))
         db.session.commit()
     return redirect(url_for("admin.dashboard"))
+
+@admin_bp.route("/delete-item/<int:item_id>", methods=["POST"])
+@pin_required
+def delete_item(item_id):
+    item = Item.query.get_or_404(item_id)
+    db.session.delete(item)
+    db.session.commit()
+    return redirect(url_for("admin.dashboard"))
+
+@admin_bp.route("/delete-category/<int:category_id>", methods=["POST"])
+@pin_required
+def delete_category(category_id):
+    category = Category.query.get_or_404(category_id)
+    if category.items:
+        flash(f"Can't delete '{category.name}' — it still has items in it.")
+        return redirect(url_for("admin.dashboard"))
+    db.session.delete(category)
+    db.session.commit()
+    return redirect(url_for("admin.dashboard"))
