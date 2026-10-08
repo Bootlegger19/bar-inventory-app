@@ -4,7 +4,9 @@ from functools import wraps
 from flask import (Blueprint, flash, jsonify, redirect, render_template, request,
                    session, url_for)
 
-from models import (db, Bar, Category, ClosingTask, Employee, Item, TaskCompletion)
+from constants import DENOMINATIONS
+from models import (db, Bar, CashCount, Category, ClosingTask, Employee,
+                    InventorySession, Item, TaskCompletion)
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates/admin")
 
@@ -13,6 +15,22 @@ PIN_MIN_LENGTH = 4
 PIN_MAX_LENGTH = 8
 LOCKOUT_THRESHOLD = 5   # failed attempts before locking
 LOCKOUT_MINUTES = 5
+
+# --- Dashboard tabs: (key, label, endpoint). Adding a tab = adding one line. ---
+ADMIN_TABS = [
+    ("overview", "Overview", "admin.dashboard"),
+    ("stock", "Stock", "admin.stock"),
+    ("tasks", "Closing tasks", "admin.tasks"),
+    ("history", "History", "admin.history"),
+    ("security", "Security", "admin.change_pin"),
+]
+HISTORY_LIMIT = 50   # most recent closings shown on the History tab
+
+
+@admin_bp.context_processor
+def inject_admin_layout():
+    """Make the tab list and bar name available to every admin template."""
+    return {"admin_tabs": ADMIN_TABS, "admin_bar": Bar.query.first()}
 
 
 def get_admin():
@@ -57,6 +75,8 @@ def pin_required(view_func):
     return wrapper
 
 
+# ---------------------------------------------------------------- login / PIN
+
 @admin_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
@@ -65,7 +85,7 @@ def login():
             return redirect(url_for("landing"))
         return render_template("login.html")
 
-    # POST: reply with JSON; the page's script decides what to show or where to go.
+    # POST: reply with JSON; static/pin-login.js decides what to show or where to go.
     admin = get_admin()
     now = datetime.now()
 
@@ -128,18 +148,92 @@ def change_pin():
                 return redirect(url_for("admin.dashboard"))
         return redirect(url_for("admin.change_pin"))
 
-    return render_template("change_pin.html", forced=admin.must_change_pin,
+    return render_template("change_pin.html", active_tab="security",
+                           forced=admin.must_change_pin,
                            min_len=PIN_MIN_LENGTH, max_len=PIN_MAX_LENGTH)
 
+
+# ------------------------------------------------------------------ tab pages
 
 @admin_bp.route("/")
 @pin_required
 def dashboard():
     bar = Bar.query.first()
-    categories = Category.query.filter_by(bar_id=bar.id).all()
-    tasks = ClosingTask.query.filter_by(bar_id=bar.id).all()
-    return render_template("dashboard.html", categories=categories, bar=bar, tasks=tasks)
+    completed = (InventorySession.query
+                 .filter_by(bar_id=bar.id, status="completed")
+                 .order_by(InventorySession.completed_at.desc()))
+    return render_template(
+        "dashboard.html",
+        active_tab="overview",
+        category_count=Category.query.filter_by(bar_id=bar.id).count(),
+        item_count=Item.query.join(Category).filter(Category.bar_id == bar.id).count(),
+        task_count=ClosingTask.query.filter_by(bar_id=bar.id).count(),
+        closing_count=completed.count(),
+        last_closing=completed.first(),
+    )
 
+
+@admin_bp.route("/stock")
+@pin_required
+def stock():
+    bar = Bar.query.first()
+    categories = Category.query.filter_by(bar_id=bar.id).all()
+    return render_template("stock.html", active_tab="stock", categories=categories)
+
+
+@admin_bp.route("/tasks")
+@pin_required
+def tasks():
+    bar = Bar.query.first()
+    return render_template("tasks.html", active_tab="tasks",
+                           tasks=ClosingTask.query.filter_by(bar_id=bar.id).all())
+
+
+@admin_bp.route("/history")
+@pin_required
+def history():
+    bar = Bar.query.first()
+    closings = (InventorySession.query
+                .filter_by(bar_id=bar.id, status="completed")
+                .order_by(InventorySession.completed_at.desc())
+                .limit(HISTORY_LIMIT).all())
+    ids = [closing.id for closing in closings]
+    cash_by_session = {cash.session_id: cash
+                       for cash in CashCount.query.filter(CashCount.session_id.in_(ids))}
+    return render_template("history.html", active_tab="history",
+                           closings=closings, cash_by_session=cash_by_session,
+                           limit=HISTORY_LIMIT)
+
+
+@admin_bp.route("/history/<int:session_id>")
+@pin_required
+def history_detail(session_id):
+    closing = InventorySession.query.filter_by(
+        id=session_id, status="completed").first_or_404()
+    categories = Category.query.filter_by(bar_id=closing.bar_id).all()
+    counts = {count.item_id: count.quantity for count in closing.counts}
+
+    cash = CashCount.query.filter_by(session_id=closing.id).first()
+    labels = {cents: label for _, group in DENOMINATIONS for label, cents in group}
+    cash_lines = []
+    if cash:
+        for line in sorted(cash.lines, key=lambda l: -l.denomination_cents):
+            cash_lines.append({
+                "label": labels.get(line.denomination_cents, f"{line.denomination_cents}¢"),
+                "quantity": line.quantity,
+                "subtotal": line.denomination_cents * line.quantity / 100,
+            })
+
+    done_ids = {tc.task_id for tc in TaskCompletion.query.filter_by(session_id=closing.id)}
+    tasks_list = ClosingTask.query.filter_by(bar_id=closing.bar_id).all()
+
+    return render_template("history_detail.html", active_tab="history",
+                           closing=closing, categories=categories, counts=counts,
+                           cash=cash, cash_lines=cash_lines,
+                           tasks=tasks_list, done_ids=done_ids)
+
+
+# ------------------------------------------------------------ stock actions
 
 @admin_bp.route("/add-category", methods=["POST"])
 @pin_required
@@ -148,7 +242,7 @@ def add_category():
     if name:
         db.session.add(Category(name=name, bar_id=Bar.query.first().id))
         db.session.commit()
-    return redirect(url_for("admin.dashboard"))
+    return redirect(url_for("admin.stock"))
 
 
 @admin_bp.route("/add-item", methods=["POST"])
@@ -159,7 +253,7 @@ def add_item():
     if name:
         db.session.add(Item(name=name, category_id=category_id))
         db.session.commit()
-    return redirect(url_for("admin.dashboard"))
+    return redirect(url_for("admin.stock"))
 
 
 @admin_bp.route("/delete-item/<int:item_id>", methods=["POST"])
@@ -168,7 +262,7 @@ def delete_item(item_id):
     item = Item.query.get_or_404(item_id)
     db.session.delete(item)
     db.session.commit()
-    return redirect(url_for("admin.dashboard"))
+    return redirect(url_for("admin.stock"))
 
 
 @admin_bp.route("/delete-category/<int:category_id>", methods=["POST"])
@@ -177,11 +271,13 @@ def delete_category(category_id):
     category = Category.query.get_or_404(category_id)
     if category.items:
         flash(f"Can't delete '{category.name}' — it still has items in it.")
-        return redirect(url_for("admin.dashboard"))
+        return redirect(url_for("admin.stock"))
     db.session.delete(category)
     db.session.commit()
-    return redirect(url_for("admin.dashboard"))
+    return redirect(url_for("admin.stock"))
 
+
+# ------------------------------------------------------------ task actions
 
 @admin_bp.route("/add-task", methods=["POST"])
 @pin_required
@@ -190,7 +286,7 @@ def add_task():
     if description:
         db.session.add(ClosingTask(bar_id=Bar.query.first().id, description=description))
         db.session.commit()
-    return redirect(url_for("admin.dashboard"))
+    return redirect(url_for("admin.tasks"))
 
 
 @admin_bp.route("/delete-task/<int:task_id>", methods=["POST"])
@@ -200,4 +296,4 @@ def delete_task(task_id):
     TaskCompletion.query.filter_by(task_id=task.id).delete()
     db.session.delete(task)
     db.session.commit()
-    return redirect(url_for("admin.dashboard"))
+    return redirect(url_for("admin.tasks"))

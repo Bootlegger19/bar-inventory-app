@@ -1,0 +1,77 @@
+{% extends "admin_base.html" %}
+{% block title %}Closing details{% endblock %}
+{% block admin_content %}
+  <a href="{{ url_for('admin.history') }}" class="btn btn-outline-secondary btn-sm mb-3">← All closings</a>
+  <h2 class="h4">{{ closing.completed_at.strftime('%A, %b %d %Y') }}</h2>
+  <p class="text-muted">
+    Closed by {{ closing.employee.name }}
+    · started {{ closing.started_at.strftime('%H:%M') }},
+    submitted {{ closing.completed_at.strftime('%H:%M') }}
+  </p>
+
+  <h3 class="h5 mt-4">Inventory</h3>
+  {% for category in categories %}
+    <div class="card mb-3">
+      <div class="card-header fw-bold">{{ category.name }}</div>
+      <ul class="list-group list-group-flush">
+        {% for item in category.items %}
+          <li class="list-group-item d-flex justify-content-between">
+            <span>{{ item.name }}</span>
+            <span class="fw-bold">{{ counts.get(item.id, '—') }}</span>
+          </li>
+        {% else %}
+          <li class="list-group-item text-muted">No items</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endfor %}
+
+  <h3 class="h5 mt-4">Cash</h3>
+  {% if cash %}
+    <div class="card mb-3">
+      <ul class="list-group list-group-flush">
+        {% for line in cash_lines %}
+          <li class="list-group-item d-flex justify-content-between">
+            <span>{{ line.label }} × {{ line.quantity }}</span>
+            <span>${{ '%.2f'|format(line.subtotal) }}</span>
+          </li>
+        {% endfor %}
+        <li class="list-group-item d-flex justify-content-between fw-bold">
+          <span>Subtotal</span><span>${{ '%.2f'|format(cash.total) }}</span>
+        </li>
+        {% if cash.tip_pool_total is not none %}
+          <li class="list-group-item d-flex justify-content-between">
+            <span>Tip pool</span><span>${{ '%.2f'|format(cash.tip_pool_total) }}</span>
+          </li>
+        {% endif %}
+      </ul>
+    </div>
+  {% else %}
+    <p class="text-muted">No cash count was recorded.</p>
+  {% endif %}
+
+  <h3 class="h5 mt-4">Closing tasks</h3>
+  <div class="card mb-3">
+    <ul class="list-group list-group-flush">
+      {% for task in tasks %}
+        <li class="list-group-item">
+          {{ '✔' if task.id in done_ids else '✘' }} {{ task.description }}
+        </li>
+      {% else %}
+        <li class="list-group-item text-muted">No tasks defined</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <h3 class="h5 mt-4">Notes</h3>
+  {% for note in closing.notes %}
+    <div class="card mb-2">
+      <div class="card-body py-2">
+        <div class="text-muted small">{{ note.created_at.strftime('%H:%M') }}</div>
+        <div style="white-space: pre-wrap;">{{ note.text }}</div>
+      </div>
+    </div>
+  {% else %}
+    <p class="text-muted">No notes.</p>
+  {% endfor %}
+{% endblock %}

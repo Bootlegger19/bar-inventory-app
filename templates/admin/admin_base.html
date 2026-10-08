@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block nav_extra %}
+  <a href="{{ url_for('admin.logout') }}" class="btn btn-outline-secondary btn-sm">Log out</a>
+{% endblock %}
+
+{% block content %}
+  <h1 class="h3 mb-3">{{ admin_bar.name }} · Admin</h1>
+  <ul class="nav nav-tabs mb-4">
+    {% for key, label, endpoint in admin_tabs %}
+      <li class="nav-item">
+        <a class="nav-link {{ 'active' if key == active_tab }}" href="{{ url_for(endpoint) }}">{{ label }}</a>
+      </li>
+    {% endfor %}
+  </ul>
+  {% block admin_content %}{% endblock %}
+{% endblock %}

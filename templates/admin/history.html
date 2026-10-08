@@ -1,0 +1,36 @@
+{% extends "admin_base.html" %}
+{% block title %}History{% endblock %}
+{% block admin_content %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle bg-white border">
+      <thead>
+        <tr>
+          <th>Submitted</th><th>Closed by</th><th>Items counted</th>
+          <th>Cash subtotal</th><th>Notes</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for closing in closings %}
+          <tr>
+            <td>{{ closing.completed_at.strftime('%a, %b %d %Y · %H:%M') }}</td>
+            <td>{{ closing.employee.name }}</td>
+            <td>{{ closing.counts|length }}</td>
+            <td>
+              {% if closing.id in cash_by_session %}
+                ${{ '%.2f'|format(cash_by_session[closing.id].total) }}
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ closing.notes|length }}</td>
+            <td class="text-end">
+              <a href="{{ url_for('admin.history_detail', session_id=closing.id) }}"
+                 class="btn btn-outline-primary btn-sm">View</a>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="text-muted">No closings have been submitted yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-muted small">Showing the most recent {{ limit }} closings.</p>
+{% endblock %}

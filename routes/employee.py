@@ -8,15 +8,11 @@ from flask import (Blueprint, flash, g, jsonify, redirect, render_template,
 from models import (db, CashCount, CashCountLine, Category, ClosingTask, Count,
                     Employee, InventorySession, TaskCompletion, ClosingNote)
 
+from constants import DENOMINATIONS
+
 employee_bp = Blueprint("employee", __name__, template_folder="../templates/employee")
 
 NOTE_MAX_LENGTH = 500
-
-# (label shown on screen, value in cents). Edit this list to change currency.
-DENOMINATIONS = [
-    ("Bills", [("$100", 10000), ("$50", 5000), ("$20", 2000), ("$10", 1000), ("$5", 500)]),
-    ("Coins", [("$2", 200), ("$1", 100), ("25¢", 25), ("10¢", 10), ("5¢", 5)]),
-]
 
 
 def get_current_session():
