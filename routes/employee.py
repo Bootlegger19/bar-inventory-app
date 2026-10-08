@@ -6,9 +6,11 @@ from flask import (Blueprint, flash, g, jsonify, redirect, render_template,
                    request, session, url_for)
 
 from models import (db, CashCount, CashCountLine, Category, ClosingTask, Count,
-                    Employee, InventorySession, TaskCompletion)
+                    Employee, InventorySession, TaskCompletion, ClosingNote)
 
 employee_bp = Blueprint("employee", __name__, template_folder="../templates/employee")
+
+NOTE_MAX_LENGTH = 500
 
 # (label shown on screen, value in cents). Edit this list to change currency.
 DENOMINATIONS = [
@@ -84,6 +86,7 @@ def closing_hub():
         cash=CashCount.query.filter_by(session_id=current.id).first(),
         total_tasks=ClosingTask.query.filter_by(bar_id=current.bar_id).count(),
         done_tasks=TaskCompletion.query.filter_by(session_id=current.id).count(),
+        note_count=len(current.notes),
     )
 
 
@@ -226,3 +229,34 @@ def finish_closing():
     session.pop("inventory_session_id", None)
     flash("Closing submitted. Good night!")
     return redirect(url_for("employee.home"))
+
+
+@employee_bp.route("/notes", methods=["GET", "POST"])
+@closing_required
+def closing_notes():
+    current = g.current
+    if request.method == "POST":
+        text = request.form.get("text", "").strip()
+        if not text:
+            flash("Write something before adding a note.")
+        elif len(text) > NOTE_MAX_LENGTH:
+            flash(f"Notes can be up to {NOTE_MAX_LENGTH} characters.")
+        else:
+            db.session.add(ClosingNote(session_id=current.id, text=text))
+            db.session.commit()
+        return redirect(url_for("employee.closing_notes"))
+    return render_template("closing_notes.html", notes=current.notes,
+                           max_len=NOTE_MAX_LENGTH)
+
+
+@employee_bp.route("/notes/<int:note_id>/delete", methods=["POST"])
+@closing_required
+def delete_note(note_id):
+    note = db.session.get(ClosingNote, note_id)
+    # The session check means a note can only be deleted from its own closing.
+    if note is None or note.session_id != g.current.id:
+        flash("That note couldn't be found.")
+    else:
+        db.session.delete(note)
+        db.session.commit()
+    return redirect(url_for("employee.closing_notes"))

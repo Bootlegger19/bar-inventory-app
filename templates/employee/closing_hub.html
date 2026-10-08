@@ -19,6 +19,10 @@
       <div class="fw-bold">Closing tasks</div>
       <div class="text-muted small">{{ done_tasks }} of {{ total_tasks }} done</div>
     </a>
+    <a href="{{ url_for('employee.closing_notes') }}" class="list-group-item list-group-item-action">
+      <div class="fw-bold">Notes</div>
+      <div class="text-muted small">{{ note_count }} note{{ '' if note_count == 1 else 's' }} added</div>
+    </a>
   </div>
 
   <form action="{{ url_for('employee.finish_closing') }}" method="post"

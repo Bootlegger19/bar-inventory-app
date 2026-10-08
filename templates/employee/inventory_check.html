@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Inventory Check{% endblock %}
 {% block content %}
+  <style>
+    .count-input::-webkit-outer-spin-button,
+    .count-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .count-input { -moz-appearance: textfield; appearance: textfield; }
+  </style>
   <h1 class="mb-2">Inventory Check</h1>
   <p class="text-muted">Fill in what you counted, then press Done. Blank boxes are skipped.</p>
   <div id="count-error" class="alert alert-danger d-none"></div>

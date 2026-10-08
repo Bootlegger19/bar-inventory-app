@@ -63,6 +63,8 @@ class InventorySession(db.Model):
 
     employee = db.relationship("Employee")
     counts = db.relationship("Count", backref="session", lazy=True)
+    notes = db.relationship("ClosingNote", backref="session", lazy=True,
+                            order_by="ClosingNote.created_at")
 
 
 class Count(db.Model):
@@ -101,3 +103,10 @@ class TaskCompletion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     session_id = db.Column(db.Integer, db.ForeignKey("inventory_session.id"), nullable=False)
     task_id = db.Column(db.Integer, db.ForeignKey("closing_task.id"), nullable=False)
+
+
+class ClosingNote(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey("inventory_session.id"), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
