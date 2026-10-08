@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from functools import wraps
 
-from flask import (Blueprint, flash, redirect, render_template, request,
+from flask import (Blueprint, flash, jsonify, redirect, render_template, request,
                    session, url_for)
 
 from models import (db, Bar, Category, ClosingTask, Employee, Item, TaskCompletion)
@@ -59,37 +59,43 @@ def pin_required(view_func):
 
 @admin_bp.route("/login", methods=["GET", "POST"])
 def login():
-    if request.method == "POST":
-        admin = get_admin()
-        now = datetime.now()
+    if request.method == "GET":
+        # Already signed in (e.g. reached this page with Back): go to the home page.
+        if session.get("is_admin"):
+            return redirect(url_for("landing"))
+        return render_template("login.html")
 
-        if admin and admin.locked_until and admin.locked_until > now:
-            minutes_left = int((admin.locked_until - now).total_seconds() // 60) + 1
-            flash(f"Too many failed attempts. Try again in {minutes_left} minute(s).")
-            return render_template("login.html")
+    # POST: reply with JSON; the page's script decides what to show or where to go.
+    admin = get_admin()
+    now = datetime.now()
 
-        if admin and admin.check_pin(request.form.get("pin", "")):
-            admin.failed_attempts = 0
-            admin.locked_until = None
-            db.session.commit()
-            session["is_admin"] = True
-            return redirect(url_for("admin.dashboard"))
+    if admin and admin.locked_until and admin.locked_until > now:
+        minutes_left = int((admin.locked_until - now).total_seconds() // 60) + 1
+        return jsonify(success=False,
+                       error=f"Too many failed attempts. Try again in {minutes_left} minute(s)."), 429
 
-        if admin:
-            if register_failed_attempt(admin):
-                flash(f"Too many failed attempts. Locked for {LOCKOUT_MINUTES} minutes.")
-            else:
-                left = LOCKOUT_THRESHOLD - admin.failed_attempts
-                flash(f"Incorrect PIN. {left} attempt(s) left.")
+    if admin and admin.check_pin(request.form.get("pin", "")):
+        admin.failed_attempts = 0
+        admin.locked_until = None
+        db.session.commit()
+        session["is_admin"] = True
+        return jsonify(success=True, redirect=url_for("admin.dashboard"))
+
+    if admin:
+        if register_failed_attempt(admin):
+            error = f"Too many failed attempts. Locked for {LOCKOUT_MINUTES} minutes."
         else:
-            flash("Incorrect PIN.")
-    return render_template("login.html")
+            left = LOCKOUT_THRESHOLD - admin.failed_attempts
+            error = f"Incorrect PIN. {left} attempt(s) left."
+    else:
+        error = "Incorrect PIN."
+    return jsonify(success=False, error=error), 401
 
 
 @admin_bp.route("/logout")
 def logout():
     session.pop("is_admin", None)
-    return redirect(url_for("admin.login"))
+    return redirect(url_for("landing"))
 
 
 @admin_bp.route("/change-pin", methods=["GET", "POST"])

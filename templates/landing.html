@@ -3,6 +3,32 @@
 
 {% block content %}
   <h1 class="mb-4">Bar Inventory</h1>
-  <a href="{{ url_for('employee.home') }}" class="btn btn-primary me-2">Employee</a>
-    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-warning">Admin</a>
+  <div class="row g-3" style="max-width: 720px;">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body d-flex flex-column">
+          <h2 class="h5">Employee</h2>
+          <p class="text-muted">Count stock and cash, and finish the closing.</p>
+          <a href="{{ url_for('employee.home') }}" class="btn btn-primary mt-auto">Open employee</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body d-flex flex-column">
+          <h2 class="h5">Admin</h2>
+          <p class="text-muted">Manage items, categories and tasks.</p>
+          <form method="post" action="{{ url_for('admin.login') }}" data-pin-form data-mode="assign" class="mt-auto">
+            <div data-error class="alert alert-danger py-2 d-none"></div>
+            <div class="input-group">
+              <input type="password" name="pin" inputmode="numeric" class="form-control"
+                     placeholder="Admin PIN" required>
+              <button type="submit" class="btn btn-warning">Enter</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='pin-login.js') }}"></script>
 {% endblock %}

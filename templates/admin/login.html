@@ -4,9 +4,12 @@
 {% block content %}
   <div class="mx-auto my-5" style="max-width: 400px;">
     <h1 class="mb-4">Admin login</h1>
-    <form method="post">
-      <input type="password" name="pin" class="form-control mb-3" placeholder="PIN" required>
+    <form method="post" action="{{ url_for('admin.login') }}" data-pin-form data-mode="replace">
+      <div data-error class="alert alert-danger d-none"></div>
+      <input type="password" name="pin" inputmode="numeric" class="form-control mb-3"
+             placeholder="PIN" required autofocus>
       <button type="submit" class="btn btn-primary w-100">Log in</button>
     </form>
   </div>
+  <script src="{{ url_for('static', filename='pin-login.js') }}"></script>
 {% endblock %}
