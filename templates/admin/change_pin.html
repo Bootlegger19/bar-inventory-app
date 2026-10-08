@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Change PIN{% endblock %}
+{% block content %}
+  <div class="mx-auto my-4" style="max-width: 400px;">
+    <h1 class="mb-3">Change PIN</h1>
+    {% if forced %}
+      <div class="alert alert-info">You're using a temporary PIN. Choose a new one to continue.</div>
+    {% endif %}
+    <form method="post" autocomplete="off">
+      <label class="form-label">Current PIN</label>
+      <input type="password" name="current_pin" inputmode="numeric"
+             class="form-control mb-3" required>
+
+      <label class="form-label">New PIN ({{ min_len }} to {{ max_len }} digits)</label>
+      <input type="password" name="new_pin" inputmode="numeric" maxlength="{{ max_len }}"
+             autocomplete="new-password" class="form-control mb-3" required>
+
+      <label class="form-label">Confirm new PIN</label>
+      <input type="password" name="confirm_pin" inputmode="numeric" maxlength="{{ max_len }}"
+             autocomplete="new-password" class="form-control mb-3" required>
+
+      <button type="submit" class="btn btn-primary w-100">Update PIN</button>
+    </form>
+  </div>
+{% endblock %}

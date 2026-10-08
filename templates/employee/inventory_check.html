@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Inventory Check{% endblock %}
 {% block content %}
-  <h1 class="mb-4">Inventory Check</h1>
+  <h1 class="mb-2">Inventory Check</h1>
+  <p class="text-muted">Fill in what you counted, then press Done. Blank boxes are skipped.</p>
+  <div id="count-error" class="alert alert-danger d-none"></div>
 
   {% for category in categories %}
     <div class="card mb-3">
@@ -15,13 +17,13 @@
                 <div class="text-muted small">Last count: {{ last_counts[item.id] }}</div>
               {% endif %}
             </div>
-            <div class="d-flex align-items-center gap-2">
-              <input type="number" min="0" class="form-control count-input" style="width: 90px;"
-                     data-item-id="{{ item.id }}"
-                     value="{{ current_counts.get(item.id, '') }}">
-              <button type="button" class="btn btn-outline-primary btn-sm save-btn"
-                      data-item-id="{{ item.id }}">Save</button>
-              <span class="saved-indicator text-success small" id="saved-{{ item.id }}"></span>
+            <div class="input-group" style="width: 170px;">
+              <button type="button" class="btn btn-outline-secondary step-btn"
+                      data-item-id="{{ item.id }}" data-delta="-1">−</button>
+              <input type="number" min="0" step="1" class="form-control text-center count-input"
+                     data-item-id="{{ item.id }}" value="{{ current_counts.get(item.id, '') }}">
+              <button type="button" class="btn btn-outline-secondary step-btn"
+                      data-item-id="{{ item.id }}" data-delta="1">+</button>
             </div>
           </li>
         {% else %}
@@ -31,31 +33,68 @@
     </div>
   {% endfor %}
 
-  <a href="{{ url_for('employee.closing_hub') }}" class="btn btn-success">Done, back to closing menu</a>
+  <button type="button" id="done-btn" class="btn btn-success mb-4">Done</button>
 
   <script>
-    document.querySelectorAll(".save-btn").forEach(function (button) {
-      button.addEventListener("click", function () {
-        const itemId = button.dataset.itemId;
-        const input = document.querySelector(`.count-input[data-item-id="${itemId}"]`);
-        const quantity = input.value;
+    const saveUrl = "{{ url_for('employee.save_counts') }}";
+    const hubUrl = "{{ url_for('employee.closing_hub') }}";
+    const errorBox = document.getElementById("count-error");
+    let dirty = false;
 
-        fetch("{{ url_for('employee.submit_count_ajax') }}", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: `item_id=${itemId}&quantity=${quantity}`,
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            const indicator = document.getElementById(`saved-${itemId}`);
-            if (data.success) {
-              indicator.textContent = "Saved";
-              setTimeout(() => (indicator.textContent = ""), 1500);
-            } else {
-              indicator.textContent = data.error || "Error";
-            }
-          });
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.classList.remove("d-none");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    document.querySelectorAll(".count-input").forEach(function (input) {
+      input.addEventListener("input", function () { dirty = true; });
+    });
+
+    document.querySelectorAll(".step-btn").forEach(function (button) {
+      button.addEventListener("click", function () {
+        const input = document.querySelector(`.count-input[data-item-id="${button.dataset.itemId}"]`);
+        input.value = Math.max(0, (parseInt(input.value) || 0) + parseInt(button.dataset.delta));
+        dirty = true;
       });
+    });
+
+    document.getElementById("done-btn").addEventListener("click", function () {
+      const counts = [];
+      for (const input of document.querySelectorAll(".count-input")) {
+        if (input.value === "") continue;
+        const quantity = Number(input.value);
+        if (!Number.isInteger(quantity) || quantity < 0) {
+          input.focus();
+          showError("Counts must be whole numbers, zero or higher.");
+          return;
+        }
+        counts.push({ item_id: Number(input.dataset.itemId), quantity: quantity });
+      }
+
+      fetch(saveUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ counts: counts }),
+      })
+        .then(function (response) {
+          return response.json().then(function (data) { return { ok: response.ok, data: data }; });
+        })
+        .then(function (result) {
+          if (result.ok && result.data.success) {
+            dirty = false;
+            window.location.href = hubUrl;
+          } else {
+            showError(result.data.error || "Something went wrong saving your counts.");
+          }
+        })
+        .catch(function () {
+          showError("Couldn't reach the server. Your numbers are still on screen, so try again.");
+        });
+    });
+
+    window.addEventListener("beforeunload", function (event) {
+      if (dirty) { event.preventDefault(); }
     });
   </script>
 {% endblock %}

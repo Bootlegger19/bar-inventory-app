@@ -3,7 +3,11 @@
 
 {% block content %}
     <h1 class="mb-4">Bar Inventory</h1>
-    <a href="{{ url_for('employee.start_closing') }}" class="btn btn-success mb-3">Start Closing</a>
+    {% if in_progress %}
+      <a href="{{ url_for('employee.closing_hub') }}" class="btn btn-warning mb-3">Resume closing</a>
+    {% else %}
+      <a href="{{ url_for('employee.start_closing') }}" class="btn btn-success mb-3">Start Closing</a>
+    {% endif %}
 
     {% for category in categories %}
       <div class="card mb-3">

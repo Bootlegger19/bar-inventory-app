@@ -1,39 +1,66 @@
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
+from functools import wraps
 
-from flask import (Blueprint, flash, jsonify, redirect, render_template,
+from flask import (Blueprint, flash, g, jsonify, redirect, render_template,
                    request, session, url_for)
 
-from models import (db, Category, ClosingTask, CashCount, Count, Employee,
-                    InventorySession, TaskCompletion)
+from models import (db, CashCount, CashCountLine, Category, ClosingTask, Count,
+                    Employee, InventorySession, TaskCompletion)
 
 employee_bp = Blueprint("employee", __name__, template_folder="../templates/employee")
 
-# (label shown on screen, value in dollars). Edit this list to change currency.
+# (label shown on screen, value in cents). Edit this list to change currency.
 DENOMINATIONS = [
-    ("Bills", [("$100", "100"), ("$50", "50"), ("$20", "20"), ("$10", "10"), ("$5", "5")]),
-    ("Coins", [("$2", "2"), ("$1", "1"), ("25¢", "0.25"), ("10¢", "0.10"), ("5¢", "0.05")]),
+    ("Bills", [("$100", 10000), ("$50", 5000), ("$20", 2000), ("$10", 1000), ("$5", 500)]),
+    ("Coins", [("$2", 200), ("$1", 100), ("25¢", 25), ("10¢", 10), ("5¢", 5)]),
 ]
 
 
 def get_current_session():
-    """Return the closing session this browser is working on, or None."""
+    """Return this browser's in-progress closing, or None.
+
+    A completed closing never counts as current, which is what stops the
+    browser's Back button from reopening a submitted closing.
+    """
     session_id = session.get("inventory_session_id")
     if not session_id:
         return None
-    return db.session.get(InventorySession, session_id)
+    current = db.session.get(InventorySession, session_id)
+    if current and current.status == "in_progress":
+        return current
+    session.pop("inventory_session_id", None)
+    return None
+
+
+def closing_required(view_func):
+    """Guard for pages that only make sense during an active closing."""
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        current = get_current_session()
+        if not current:
+            flash("No closing in progress. Start a new one to continue.")
+            return redirect(url_for("employee.home"))
+        g.current = current
+        return view_func(*args, **kwargs)
+    return wrapper
 
 
 @employee_bp.route("/")
 def home():
     categories = Category.query.all()
-    return render_template("items.html", categories=categories)
+    return render_template("items.html", categories=categories,
+                           in_progress=get_current_session())
 
 
 @employee_bp.route("/start-closing", methods=["GET", "POST"])
 def start_closing():
+    if get_current_session():
+        return redirect(url_for("employee.closing_hub"))
+
     if request.method == "POST":
-        employee = db.session.get(Employee, int(request.form["employee_id"]))
+        employee_id = request.form.get("employee_id", type=int)
+        employee = db.session.get(Employee, employee_id) if employee_id else None
         if not employee:
             flash("Please select your name before starting.")
             return redirect(url_for("employee.start_closing"))
@@ -43,15 +70,13 @@ def start_closing():
         session["inventory_session_id"] = new_session.id
         return redirect(url_for("employee.closing_hub"))
 
-    employees = Employee.query.all()
-    return render_template("start_closing.html", employees=employees)
+    return render_template("start_closing.html", employees=Employee.query.all())
 
 
 @employee_bp.route("/closing")
+@closing_required
 def closing_hub():
-    current = get_current_session()
-    if not current:
-        return redirect(url_for("employee.start_closing"))
+    current = g.current
     return render_template(
         "closing_hub.html",
         current=current,
@@ -63,11 +88,9 @@ def closing_hub():
 
 
 @employee_bp.route("/inventory-check")
+@closing_required
 def inventory_check():
-    current = get_current_session()
-    if not current:
-        return redirect(url_for("employee.start_closing"))
-
+    current = g.current
     categories = Category.query.filter_by(bar_id=current.bar_id).all()
 
     previous = (
@@ -80,48 +103,60 @@ def inventory_check():
     last_counts = {c.item_id: c.quantity for c in previous.counts} if previous else {}
     current_counts = {c.item_id: c.quantity for c in current.counts}
 
-    return render_template(
-        "inventory_check.html",
-        categories=categories,
-        last_counts=last_counts,
-        current_counts=current_counts,
-    )
+    return render_template("inventory_check.html", categories=categories,
+                           last_counts=last_counts, current_counts=current_counts)
 
 
-@employee_bp.route("/submit-count-ajax", methods=["POST"])
-def submit_count_ajax():
+@employee_bp.route("/save-counts", methods=["POST"])
+def save_counts():
+    """Save every count on the page in one request (JSON in, JSON out)."""
     current = get_current_session()
     if not current:
-        return jsonify(success=False, error="No closing in progress"), 400
-    try:
-        item_id = int(request.form["item_id"])
-        quantity = int(request.form["quantity"])
-    except (KeyError, ValueError):
-        return jsonify(success=False, error="Enter a whole number"), 400
-    if quantity < 0:
-        return jsonify(success=False, error="Count can't be negative"), 400
+        return jsonify(success=False,
+                       error="This closing was already submitted or never started."), 400
 
-    existing = Count.query.filter_by(session_id=current.id, item_id=item_id).first()
-    if existing:
-        existing.quantity = quantity
-    else:
-        db.session.add(Count(session_id=current.id, item_id=item_id, quantity=quantity))
+    entries = (request.get_json(silent=True) or {}).get("counts")
+    if not isinstance(entries, list):
+        return jsonify(success=False, error="No counts were received."), 400
+
+    valid_item_ids = {item.id
+                      for category in Category.query.filter_by(bar_id=current.bar_id)
+                      for item in category.items}
+
+    # Validate everything first, so one bad box never leaves a half-saved page.
+    cleaned = {}
+    for entry in entries:
+        entry = entry if isinstance(entry, dict) else {}
+        item_id, quantity = entry.get("item_id"), entry.get("quantity")
+        if not isinstance(item_id, int) or item_id not in valid_item_ids:
+            return jsonify(success=False,
+                           error="An item no longer exists. Refresh the page and try again."), 400
+        if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity < 0:
+            return jsonify(success=False,
+                           error="Counts must be whole numbers, zero or higher."), 400
+        cleaned[item_id] = quantity
+
+    existing = {c.item_id: c for c in current.counts}
+    for item_id, quantity in cleaned.items():
+        if item_id in existing:
+            existing[item_id].quantity = quantity
+        else:
+            db.session.add(Count(session_id=current.id, item_id=item_id, quantity=quantity))
     db.session.commit()
     return jsonify(success=True)
 
 
 @employee_bp.route("/cash-count", methods=["GET", "POST"])
+@closing_required
 def cash_count():
-    current = get_current_session()
-    if not current:
-        return redirect(url_for("employee.start_closing"))
+    current = g.current
     existing = CashCount.query.filter_by(session_id=current.id).first()
 
     if request.method == "POST":
-        total = Decimal("0")
+        quantities = {}
         for _, group in DENOMINATIONS:
-            for label, value in group:
-                raw = request.form.get(f"d_{value}", "").strip() or "0"
+            for label, cents in group:
+                raw = request.form.get(f"d_{cents}", "").strip() or "0"
                 try:
                     quantity = int(raw)
                 except ValueError:
@@ -130,7 +165,9 @@ def cash_count():
                 if quantity < 0:
                     flash(f"{label}: can't be negative.")
                     return redirect(url_for("employee.cash_count"))
-                total += Decimal(value) * quantity
+                quantities[cents] = quantity
+
+        total = Decimal(sum(cents * qty for cents, qty in quantities.items())) / 100
 
         tip_raw = request.form.get("tip_pool", "").strip()
         try:
@@ -139,22 +176,27 @@ def cash_count():
             flash("Tip pool must be a number, like 42.50.")
             return redirect(url_for("employee.cash_count"))
 
+        lines = [CashCountLine(denomination_cents=cents, quantity=qty)
+                 for cents, qty in quantities.items() if qty > 0]
         if existing:
             existing.total = total
             existing.tip_pool_total = tip
+            existing.lines = lines  # old lines are deleted automatically (delete-orphan)
         else:
-            db.session.add(CashCount(session_id=current.id, total=total, tip_pool_total=tip))
+            db.session.add(CashCount(session_id=current.id, total=total,
+                                     tip_pool_total=tip, lines=lines))
         db.session.commit()
         return redirect(url_for("employee.closing_hub"))
 
-    return render_template("cash_count.html", denominations=DENOMINATIONS, existing=existing)
+    saved = {line.denomination_cents: line.quantity for line in existing.lines} if existing else {}
+    return render_template("cash_count.html", denominations=DENOMINATIONS,
+                           existing=existing, saved=saved)
 
 
 @employee_bp.route("/closing-tasks", methods=["GET", "POST"])
+@closing_required
 def closing_tasks():
-    current = get_current_session()
-    if not current:
-        return redirect(url_for("employee.start_closing"))
+    current = g.current
     tasks = ClosingTask.query.filter_by(bar_id=current.bar_id).all()
 
     if request.method == "POST":
@@ -171,10 +213,9 @@ def closing_tasks():
 
 
 @employee_bp.route("/finish-closing", methods=["POST"])
+@closing_required
 def finish_closing():
-    current = get_current_session()
-    if not current:
-        return redirect(url_for("employee.start_closing"))
+    current = g.current
     if not current.counts:
         flash("Enter at least one inventory count before finishing.")
         return redirect(url_for("employee.closing_hub"))

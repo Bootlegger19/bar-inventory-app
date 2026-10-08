@@ -11,6 +11,7 @@
             <li class="list-group-item d-flex justify-content-between align-items-center">
               <span>{{ label }}</span>
               <input type="number" min="0" step="1" name="d_{{ value }}" placeholder="0"
+                     value="{{ saved.get(value, '') }}"
                      class="form-control denom-input" style="width: 100px;" data-value="{{ value }}">
             </li>
           {% endfor %}
@@ -33,14 +34,15 @@
 
   <script>
     function updateSubtotal() {
-      let total = 0;
+      let cents = 0;
       document.querySelectorAll(".denom-input").forEach(function (input) {
-        total += (parseInt(input.value) || 0) * parseFloat(input.dataset.value);
+        cents += (parseInt(input.value) || 0) * parseInt(input.dataset.value);
       });
-      document.getElementById("subtotal").textContent = total.toFixed(2);
+      document.getElementById("subtotal").textContent = (cents / 100).toFixed(2);
     }
     document.querySelectorAll(".denom-input").forEach(function (input) {
       input.addEventListener("input", updateSubtotal);
     });
+    updateSubtotal();
   </script>
 {% endblock %}

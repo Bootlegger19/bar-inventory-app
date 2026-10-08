@@ -6,6 +6,12 @@ app.config["SECRET_KEY"] = "dev-secret-change-later"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///inventory.db"
 db.init_app(app)
 
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    return response
+
 with app.app_context():
     db.create_all()
 
@@ -28,6 +34,7 @@ with app.app_context():
     if Employee.query.filter_by(role_id=Role.query.filter_by(name="admin").first().id).count() == 0:
         admin = Employee(name="Admin", bar_id=bar.id, role_id=Role.query.filter_by(name="admin").first().id)
         admin.set_pin("1234")
+        admin.must_change_pin = True
         db.session.add(admin)
         db.session.commit()
 

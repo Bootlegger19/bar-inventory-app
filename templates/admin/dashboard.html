@@ -2,6 +2,7 @@
 {% block title %}Admin Dashboard{% endblock %}
 
 {% block nav_extra %}
+  <a href="{{ url_for('admin.change_pin') }}" class="btn btn-outline-primary btn-sm">Change PIN</a>
   <a href="{{ url_for('admin.logout') }}" class="btn btn-outline-secondary btn-sm">Log out</a>
 {% endblock %}
 

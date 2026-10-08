@@ -24,6 +24,9 @@ class Employee(db.Model):
     pin_hash = db.Column(db.String(200))  # null for roles that don't need a PIN
     bar_id = db.Column(db.Integer, db.ForeignKey("bar.id"), nullable=False)
     role_id = db.Column(db.Integer, db.ForeignKey("role.id"), nullable=False)
+    failed_attempts = db.Column(db.Integer, default=0, nullable=False)
+    locked_until = db.Column(db.DateTime)
+    must_change_pin = db.Column(db.Boolean, default=False, nullable=False)
 
     role = db.relationship("Role")
 
@@ -82,6 +85,17 @@ class CashCount(db.Model):
     session_id = db.Column(db.Integer, db.ForeignKey("inventory_session.id"), nullable=False)
     total = db.Column(db.Numeric(10, 2), nullable=False)
     tip_pool_total = db.Column(db.Numeric(10, 2))
+
+    lines = db.relationship("CashCountLine", backref="cash_count",
+                            cascade="all, delete-orphan", lazy=True)
+
+
+class CashCountLine(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    cash_count_id = db.Column(db.Integer, db.ForeignKey("cash_count.id"), nullable=False)
+    denomination_cents = db.Column(db.Integer, nullable=False)  # $20 bill = 2000
+    quantity = db.Column(db.Integer, nullable=False)
+
 
 class TaskCompletion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
