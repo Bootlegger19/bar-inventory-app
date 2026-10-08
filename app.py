@@ -1,5 +1,5 @@
 from flask import Flask, render_template
-from models import db, Bar, Category, Role, Employee
+from models import db, Bar, Category, Role, Employee, ClosingTask
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "dev-secret-change-later"
@@ -37,6 +37,11 @@ with app.app_context():
             Employee(name="Armstrong", bar_id=bar.id, role_id=emp_role_id),
             Employee(name="Jordan", bar_id=bar.id, role_id=emp_role_id),
         ])
+        db.session.commit()
+    
+    if ClosingTask.query.count() == 0:
+        for description in ["Wipe down surfaces", "Garnish prep", "Batch prep"]:
+            db.session.add(ClosingTask(bar_id=bar.id, description=description))
         db.session.commit()
 
 from routes.employee import employee_bp

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Closing{% endblock %}
+{% block content %}
+  <h1 class="mb-1">Closing</h1>
+  <p class="text-muted">{{ current.employee.name }} · started {{ current.started_at.strftime('%b %d, %H:%M') }}</p>
+
+  <div class="list-group mb-4">
+    <a href="{{ url_for('employee.inventory_check') }}" class="list-group-item list-group-item-action">
+      <div class="fw-bold">Inventory check</div>
+      <div class="text-muted small">{{ inventory_count }} items counted</div>
+    </a>
+    <a href="{{ url_for('employee.cash_count') }}" class="list-group-item list-group-item-action">
+      <div class="fw-bold">Cash count</div>
+      <div class="text-muted small">
+        {% if cash %}Subtotal ${{ '%.2f'|format(cash.total) }}{% else %}Not done yet{% endif %}
+      </div>
+    </a>
+    <a href="{{ url_for('employee.closing_tasks') }}" class="list-group-item list-group-item-action">
+      <div class="fw-bold">Closing tasks</div>
+      <div class="text-muted small">{{ done_tasks }} of {{ total_tasks }} done</div>
+    </a>
+  </div>
+
+  <form action="{{ url_for('employee.finish_closing') }}" method="post"
+        onsubmit="return confirm('Submit this closing? You will not be able to edit it afterwards.');">
+    <button type="submit" class="btn btn-success">Finish closing</button>
+  </form>
+{% endblock %}

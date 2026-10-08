@@ -31,9 +31,7 @@
     </div>
   {% endfor %}
 
-  <form action="{{ url_for('employee.complete_inventory') }}" method="post">
-    <button type="submit" class="btn btn-success">Complete inventory check</button>
-  </form>
+  <a href="{{ url_for('employee.closing_hub') }}" class="btn btn-success">Done, back to closing menu</a>
 
   <script>
     document.querySelectorAll(".save-btn").forEach(function (button) {
@@ -54,7 +52,7 @@
               indicator.textContent = "Saved";
               setTimeout(() => (indicator.textContent = ""), 1500);
             } else {
-              indicator.textContent = "Error";
+              indicator.textContent = data.error || "Error";
             }
           });
       });

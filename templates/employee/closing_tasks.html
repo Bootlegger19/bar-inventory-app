@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Closing Tasks{% endblock %}
+{% block content %}
+  <h1 class="mb-4">Closing Tasks</h1>
+  <form method="post">
+    <ul class="list-group mb-3">
+      {% for task in tasks %}
+        <li class="list-group-item">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="task_ids" value="{{ task.id }}"
+                   id="task-{{ task.id }}" {% if task.id in done_ids %}checked{% endif %}>
+            <label class="form-check-label" for="task-{{ task.id }}">{{ task.description }}</label>
+          </div>
+        </li>
+      {% else %}
+        <li class="list-group-item text-muted">No closing tasks yet. Ask an admin to add some.</li>
+      {% endfor %}
+    </ul>
+    <button type="submit" class="btn btn-success">Save tasks</button>
+    <a href="{{ url_for('employee.closing_hub') }}" class="btn btn-outline-secondary">Back to closing menu</a>
+  </form>
+{% endblock %}

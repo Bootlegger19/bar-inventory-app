@@ -1,6 +1,6 @@
 from functools import wraps
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
-from models import db, Category, Item, Bar, Employee
+from models import db, Category, Item, Bar, Employee, ClosingTask, TaskCompletion
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates/admin")
 
@@ -42,7 +42,28 @@ def logout():
 def dashboard():
     bar = Bar.query.first()
     categories = Category.query.filter_by(bar_id=bar.id).all()
-    return render_template("dashboard.html", categories=categories, bar=bar)
+    tasks = ClosingTask.query.filter_by(bar_id=bar.id).all()
+    return render_template("dashboard.html", categories=categories, bar=bar, tasks=tasks)
+
+
+@admin_bp.route("/add-task", methods=["POST"])
+@pin_required
+def add_task():
+    description = request.form["description"].strip()
+    if description:
+        db.session.add(ClosingTask(bar_id=Bar.query.first().id, description=description))
+        db.session.commit()
+    return redirect(url_for("admin.dashboard"))
+
+
+@admin_bp.route("/delete-task/<int:task_id>", methods=["POST"])
+@pin_required
+def delete_task(task_id):
+    task = ClosingTask.query.get_or_404(task_id)
+    TaskCompletion.query.filter_by(task_id=task.id).delete()
+    db.session.delete(task)
+    db.session.commit()
+    return redirect(url_for("admin.dashboard"))
 
 
 @admin_bp.route("/add-category", methods=["POST"])

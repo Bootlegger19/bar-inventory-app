@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Cash Count{% endblock %}
+{% block content %}
+  <h1 class="mb-4">Cash Count</h1>
+  <form method="post">
+    {% for group_name, group in denominations %}
+      <div class="card mb-3">
+        <div class="card-header fw-bold">{{ group_name }}</div>
+        <ul class="list-group list-group-flush">
+          {% for label, value in group %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <span>{{ label }}</span>
+              <input type="number" min="0" step="1" name="d_{{ value }}" placeholder="0"
+                     class="form-control denom-input" style="width: 100px;" data-value="{{ value }}">
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <label class="form-label">Tip pool total (optional)</label>
+        <input type="number" min="0" step="0.01" name="tip_pool" class="form-control"
+               value="{{ existing.tip_pool_total if existing and existing.tip_pool_total is not none else '' }}">
+      </div>
+    </div>
+
+    <h4 class="mb-3">Subtotal: $<span id="subtotal">0.00</span></h4>
+    <button type="submit" class="btn btn-success">Save cash count</button>
+    <a href="{{ url_for('employee.closing_hub') }}" class="btn btn-outline-secondary">Back to closing menu</a>
+  </form>
+
+  <script>
+    function updateSubtotal() {
+      let total = 0;
+      document.querySelectorAll(".denom-input").forEach(function (input) {
+        total += (parseInt(input.value) || 0) * parseFloat(input.dataset.value);
+      });
+      document.getElementById("subtotal").textContent = total.toFixed(2);
+    }
+    document.querySelectorAll(".denom-input").forEach(function (input) {
+      input.addEventListener("input", updateSubtotal);
+    });
+  </script>
+{% endblock %}

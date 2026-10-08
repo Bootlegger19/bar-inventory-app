@@ -4,11 +4,6 @@
 {% block content %}
   <div class="mx-auto my-5" style="max-width: 400px;">
     <h1 class="mb-4">Admin login</h1>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="alert alert-danger">{{ messages[0] }}</div>
-      {% endif %}
-    {% endwith %}
     <form method="post">
       <input type="password" name="pin" class="form-control mb-3" placeholder="PIN" required>
       <button type="submit" class="btn btn-primary w-100">Log in</button>

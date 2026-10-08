@@ -54,7 +54,7 @@ class InventorySession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bar_id = db.Column(db.Integer, db.ForeignKey("bar.id"), nullable=False)
     employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
-    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    started_at = db.Column(db.DateTime, default=datetime.now)
     completed_at = db.Column(db.DateTime)
     status = db.Column(db.String(20), default="in_progress")  # in_progress / completed
 
@@ -82,3 +82,8 @@ class CashCount(db.Model):
     session_id = db.Column(db.Integer, db.ForeignKey("inventory_session.id"), nullable=False)
     total = db.Column(db.Numeric(10, 2), nullable=False)
     tip_pool_total = db.Column(db.Numeric(10, 2))
+
+class TaskCompletion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey("inventory_session.id"), nullable=False)
+    task_id = db.Column(db.Integer, db.ForeignKey("closing_task.id"), nullable=False)
